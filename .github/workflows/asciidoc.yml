@@ -49,41 +49,6 @@ jobs:
               echo "✗ Failed to process $file - continuing with other diagrams"
             fi
           done
-      
-      - name: Generate images README.adoc
-        id: generate-images-readme
-        run: |
-          cd images
-          echo "= Infrastructure Diagrams" > README.adoc
-          echo "" >> README.adoc
-          echo "PlantUML diagrams for the infrastructure management system." >> README.adoc
-          echo "" >> README.adoc
-          
-          if ls data-model-*.plantuml 1> /dev/null 2>&1; then
-            echo "== Data Model Diagrams" >> README.adoc
-            echo "" >> README.adoc
-            for file in data-model-*.plantuml; do
-              basename=$(basename "$file" .plantuml)
-              title=$(grep "^title " "$file" | sed 's/^title //' || echo "$basename")
-              echo "=== $title" >> README.adoc
-              echo ".${basename//-/ } domain" >> README.adoc
-              echo "image::${basename}.png[]" >> README.adoc
-              echo "" >> README.adoc
-            done
-          fi
-          
-          echo "== System Architecture Diagrams" >> README.adoc
-          echo "" >> README.adoc
-          for file in *.plantuml; do
-            if [[ ! "$file" =~ ^data-model- ]]; then
-              basename=$(basename "$file" .plantuml)
-              title=$(grep "^title " "$file" | sed 's/^title //' || echo "$basename")
-              echo "=== $title" >> README.adoc
-              echo ".${basename//-/ } infrastructure" >> README.adoc
-              echo "image::${basename}.png[]" >> README.adoc
-              echo "" >> README.adoc
-            fi
-          done
 
       - name: Make the PDFs and HTMLs
         id: asciidoc-2-html-and-pdf
