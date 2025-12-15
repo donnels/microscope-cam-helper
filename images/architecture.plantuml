@@ -1,4 +1,4 @@
-@startuml microscope-architecture
+@startuml
 '!include ../../../images/style-template.puml
 
 title VSaGCR Microscopy System Architecture
