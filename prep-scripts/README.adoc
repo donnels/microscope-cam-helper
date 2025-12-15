@@ -1,0 +1,252 @@
+= Hardware Tests (before going full in)
+
+== Why This
+
+Verify Pi Zero microscope hardware before container deployment.
+
+Tests run on bare Pi. Production uses Docker container.
+
+Make sure stuff works. Debug hardware issues early.
+
+[NOTE]
+====
+The comprehensive test script `comprehensive-test.sh` automates setup and testing.
+IF you are running that then after it you can skip this section unless you run aground.
+====
+
+== Why This Way
+
+Container uses apt packages (`python3-opencv`). Pre-compiled. Fast.
+
+Pip packages (`opencv-python`) compile from source. Hours on Pi Zero (I gave up).
+
+Solution: Use apt for opencv. Pip for small packages. Venv with system access.
+
+== Quick Start
+
+Enable hardware:
+[,console]
+----
+$ sudo raspi-config
+# Interface Options → I2C → Enable
+# Interface Options → SPI → Enable
+# Finish → Reboot
+----
+
+Copy prep-scripts and docker to Pi:
+[,console]
+----
+$ scp -r prep-scripts docker sean@piz-microscope.fritz.box:~/
+----
+
+On Pi install packages via apt:
+[,console]
+----
+$ sudo apt-get update
+$ sudo apt-get install -y python3-opencv python3-numpy python3-dev
+----
+
+Create venv with system packages access:
+[,console]
+----
+$ cd ~/prep-scripts
+$ python3 -m venv --system-site-packages ~/test-env
+$ source ~/test-env/bin/activate
+$ pip install --upgrade pip setuptools wheel
+$ pip install -r requirements.txt
+----
+
+Requirements (requirements.txt):
+
+[,text]
+----
+include::requirements.txt[]
+----
+
+Test hardware:
+[,console]
+----
+$ source ~/test-env/bin/activate
+
+# LED HAT
+$ sudo -E python3 prep-scripts/function-test-hat.py
+
+# Battery
+$ sudo -E python3 prep-scripts/function-test-battery.py
+
+# Cameras (USB/CSI)
+$ python3 prep-scripts/function-test-cameras.py --list  # List available cameras
+$ python3 prep-scripts/function-test-cameras.py /dev/video0  # Test specific camera
+----
+
+Cleanup:
+[,console]
+----
+$ deactivate
+$ rm -rf ~/test-env ~/prep-scripts
+----
+
+== Hardware Check
+
+List USB devices:
+[,console]
+----
+$ lsusb
+Bus 001 Device 002: ID 534d:2109 MacroSilicon USB Video
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+----
+
+List video devices:
+[,console]
+----
+$ v4l2-ctl --list-devices
+unicam (platform:20801000.csi):
+        /dev/video0
+
+USB Video: USB Video (usb-20980000.usb-1):
+        /dev/video1
+        /dev/video2
+----
+
+Check I2C and SPI:
+[,console]
+----
+$ ls /dev/i2c-* /dev/spi*
+/dev/i2c-1  /dev/spidev0.0  /dev/spidev0.1
+----
+
+== Tests
+
+=== LED HAT
+
+Pimoroni Unicorn HAT 4x8. Uses SPI.
+
+Script: `function-test-hat.py` - Color sequence test
+
+Run:
+[,console]
+----
+$ sudo -E python3 function-test-hat.py
+Unicorn HAT initialized
+Test 1: Red row
+Test 2: Green row
+Test 3: Blue row
+Test 4: Yellow row
+Test 5: All white
+Test complete
+----
+
+Expected: Rows light red, green, blue, yellow, then all white.
+
+=== Battery
+
+UPS-Lite v1.3. CW2015 fuel gauge. I2C 0x62.
+
+Script: `function-test-battery.py` - Comprehensive battery testing
+
+Device detection, register dump, voltage/capacity reading, status monitoring:
+[,console]
+----
+$ sudo -E python3 function-test-battery.py
+UPS-Lite v1.3 Battery Monitor Test
+I2C Address: 0x62
+
+Test 1: I2C Device Detection
+PASS: Device found
+
+Test 2: Register Dump
+Register dump (first 16 registers):
+  Reg 0x00: 0x00 (0)
+  ...
+
+Test 3: Single Readings
+Voltage: 4.20V
+Capacity: 100%
+Charging: False
+
+Test 4: Status Summary
+Status: FULL
+Voltage: 4.20V
+Capacity: 100%
+Charging: False
+
+Test 5: Continuous Monitoring (Ctrl+C to stop)
+Status: FULL | Voltage: 4.20V | Capacity: 100%
+...
+----
+
+=== Camera
+
+Test USB cameras (MacroSilicon HDMI capture) and CSI cameras (onboard Pi camera).
+
+Script: `test-camera.py` - Unified camera testing
+
+List available cameras:
+[,console]
+----
+$ python3 test-camera.py --list
+Available video devices:
+/dev/video0: CSI camera (640x480 @ 30fps)
+/dev/video1: USB camera (1280x720 @ 30fps)
+----
+
+Test all cameras:
+[,console]
+----
+$ python3 test-camera.py
+Testing camera: /dev/video0
+Resolution: 640x480
+FPS: 30.0
+SUCCESS: Captured test-video0.jpg
+
+Testing camera: /dev/video1
+Resolution: 1280x720
+FPS: 30.0
+SUCCESS: Captured test-video1.jpg
+----
+
+Test specific camera:
+[,console]
+----
+$ python3 test-camera.py /dev/video1
+Testing camera: /dev/video1
+Resolution: 1280x720
+FPS: 30.0
+SUCCESS: Captured test-video1.jpg
+----
+
+== Troubleshooting
+
+I2C missing:
+[,console]
+----
+$ ls /dev/i2c-*
+$ sudo i2cdetect -y 1  # Battery at 0x62
+----
+
+SPI missing:
+[,console]
+----
+$ ls /dev/spi*
+----
+
+Import errors:
+[,console]
+----
+$ source ~/test-env/bin/activate
+$ python3 -c "import cv2; print(cv2.__version__)"
+----
+
+GPIO busy:
+[,console]
+----
+$ sudo docker stop microscope-camera
+----
+
+== Notes
+
+`sudo -E` preserves venv.
+
+`--system-site-packages` lets venv use apt opencv while keeping pip packages isolated.
+
+Tests verify hardware only. Container handles production. Two different beasts. This is only foundation.

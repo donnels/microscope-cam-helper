@@ -1,0 +1,101 @@
+# For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
+
+name: asciidoc pdf and html, and plantuml
+
+on:
+  push:
+    paths:
+      - 'images/**'
+      - '**.adoc'
+      - '**.asciidoc'
+      - '.github/workflows/adoc.yml'
+    branches: [ "main" ]
+    # Publish semver tags as releases.
+    tags: [ 'v*.*.*' ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    env:
+      container_plantuml: ghcr.io/donnels/plantuml:main
+      container_asciidoc: ghcr.io/donnels/asciidoc:main
+
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: pull the containers
+        id : pull-containers
+        run: |
+          docker pull $container_plantuml &
+          docker pull $container_asciidoc &
+          wait
+
+      - name: Make the plantumls
+        id : plantuml-2-png-and-svg
+        run: |
+          cd images
+          for file in *.plantuml; do
+            echo "Processing $file..."
+            if docker run -t -v"$PWD":/data $container_plantuml "$file"; then
+              echo "✓ Successfully processed $file"
+            else
+              echo "✗ Failed to process $file - continuing with other diagrams"
+            fi
+          done
+      
+      - name: Generate images README.adoc
+        id: generate-images-readme
+        run: |
+          cd images
+          echo "= Infrastructure Diagrams" > README.adoc
+          echo "" >> README.adoc
+          echo "PlantUML diagrams for the infrastructure management system." >> README.adoc
+          echo "" >> README.adoc
+          
+          if ls data-model-*.plantuml 1> /dev/null 2>&1; then
+            echo "== Data Model Diagrams" >> README.adoc
+            echo "" >> README.adoc
+            for file in data-model-*.plantuml; do
+              basename=$(basename "$file" .plantuml)
+              title=$(grep "^title " "$file" | sed 's/^title //' || echo "$basename")
+              echo "=== $title" >> README.adoc
+              echo ".${basename//-/ } domain" >> README.adoc
+              echo "image::${basename}.png[]" >> README.adoc
+              echo "" >> README.adoc
+            done
+          fi
+          
+          echo "== System Architecture Diagrams" >> README.adoc
+          echo "" >> README.adoc
+          for file in *.plantuml; do
+            if [[ ! "$file" =~ ^data-model- ]]; then
+              basename=$(basename "$file" .plantuml)
+              title=$(grep "^title " "$file" | sed 's/^title //' || echo "$basename")
+              echo "=== $title" >> README.adoc
+              echo ".${basename//-/ } infrastructure" >> README.adoc
+              echo "image::${basename}.png[]" >> README.adoc
+              echo "" >> README.adoc
+            fi
+          done
+
+      - name: Make the PDFs and HTMLs
+        id: asciidoc-2-html-and-pdf
+        run: |
+          docker run -v "$PWD":/documents/ --name asciidoc-to-pdf asciidoctor/docker-asciidoctor asciidoctor-pdf -D /documents/docs *.asciidoc
+          docker run -v "$PWD":/documents/ --name asciidoc-to-html asciidoctor/docker-asciidoctor asciidoctor -D /documents/docs *.asciidoc
+          
+      - name: Check for modified files
+        id: git-check
+        run: echo ::set-output name=modified::$(if [ -n "$(git status --porcelain)" ]; then echo "true"; else echo "false"; fi)
+      - name: Update changes in GitHub repository
+        if: steps.git-check.outputs.modified == 'true'
+        run:  |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .
+          git commit -m '[automated commit] push changed files from actions'
+          git push

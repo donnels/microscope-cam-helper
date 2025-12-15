@@ -1,0 +1,44 @@
+= ADR-008: AsciiDoc Conditional Settings for Multi-Format Publishing
+
+*Status:* Accepted
+
+*Date:* 2025-12-15
+
+== Context
+
+Documentation uses AsciiDoc format for multiple output targets: GitHub rendering, PDF compilation, and central documentation site.
+
+GitHub renders AsciiDoc directly but does not process include directives. This limits settings to inline declarations.
+
+Compiled AsciiDoc processes includes, allowing settings in separate files for PDF generation.
+
+Images require conditional imagesdir setting for book format to display correctly in compiled docs while maintaining GitHub compatibility.
+
+Notes and other blocks need inline settings for GitHub visibility, but can use included settings for compiled formats.
+
+== Decision
+
+Use conditional blocks for imagesdir management:
+
+* Set imagesdir to local images directory when flag-book is defined
+* Store original imagesdir before changing
+* Reset imagesdir after image blocks
+
+Keep settings for notes and blocks inline in main documents for GitHub compatibility.
+
+Place PDF-specific settings in included files for compiled documentation.
+
+== Consequences
+
+=== Positive
+
+* Images display correctly in GitHub and compiled formats
+* Notes and blocks render properly on GitHub
+* PDF settings remain organized in separate files
+* Maintains clean separation between formats
+
+=== Negative
+
+* Adds complexity to document structure
+* Requires careful management of conditional blocks
+* Inline settings reduce modularity for GitHub-focused docs

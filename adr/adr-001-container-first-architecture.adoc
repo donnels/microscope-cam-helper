@@ -1,0 +1,71 @@
+= ADR-001: Container-First Architecture
+
+*Status:* Accepted
+
+*Date:* 2025-12-14
+
+== Context
+
+Pi Zero microscope project requires portability across hardware variants (Zero, Zero 2, etc.).
+
+System dependencies create deployment friction:
+
+* Python packages scattered on host
+* Manual I2C/SPI configuration
+* Version conflicts
+* Rebuild complexity
+
+Testing on bare metal pollutes host system.
+Direct pip install with `--break-system-packages` breaks system integrity.
+
+== Decision
+
+All application code runs in Docker containers.
+
+Host system configuration limited to:
+
+* Docker installation
+* I2C enabled (`dtparam=i2c_arm=on`)
+* SPI enabled (`dtparam=spi=on`)
+* Device permissions (i2c, spi, video groups)
+
+No Python packages installed on host.
+No application dependencies on host.
+
+Container provides:
+
+* Complete runtime environment
+* All Python dependencies
+* Reproducible builds
+* Hardware device access via volume mounts
+
+Testing on bare Pi is interim only.
+All Pi testing is throwaway.
+Pi will be rebuilt from clean image.
+
+== Consequences
+
+=== Positive
+
+* Hardware portability guaranteed
+* Clean host system
+* Reproducible deployments
+* Version control of full stack
+* Easy migration to Zero 2 or other hardware
+* No manual dependency management
+* Container is deployment artifact
+
+=== Negative
+
+* Docker required on Pi
+* Container build time overhead
+* Privileged mode required for hardware access
+* Docker is an abstraction
+
+=== Implementation
+
+* Dockerfile defines complete environment
+* docker-compose.yml maps devices and volumes
+* Deployment script handles container lifecycle
+* Host setup documented in single guide
+* No host package pollution

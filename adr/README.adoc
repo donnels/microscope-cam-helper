@@ -1,0 +1,39 @@
+= Architecture Decision Records
+:toc:
+
+== What is an ADR
+
+Architecture Decision Record captures significant design choices.
+
+TOGAF defines ADRs as:
+
+* Document key architectural decisions
+* Record context and rationale
+* Track consequences
+* Enable future understanding
+
+== Format
+
+* Title: Decision identifier
+* Status: Proposed, Accepted, Deprecated, Superseded
+* Context: The problem
+* Decision: The choice made
+* Consequences: Impact and trade-offs
+
+== Records
+
+include::adr-001-container-first-architecture.adoc[leveloffset=+2]
+
+include::adr-008-asciidoc-conditional-settings.adoc[leveloffset=+2]
+
+include::adr-002-security-model.adoc[leveloffset=+2]
+
+include::adr-003-led-event-queue.adoc[leveloffset=+2]
+
+include::adr-004-battery-monitoring.adoc[leveloffset=+2]
+
+include::adr-005-multi-camera-management.adoc[leveloffset=+2]
+
+include::adr-006-directory-structure.adoc[leveloffset=+2]
+
+include::adr-007-privileged-mode-removal.adoc[leveloffset=+2]

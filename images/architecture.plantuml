@@ -1,0 +1,76 @@
+@startuml microscope-architecture
+'!include ../../../images/style-template.puml
+
+title VSaGCR Microscopy System Architecture
+footer ©2025 Sean Donnellan
+skinparam BackgroundColor #fff/aaf
+skinparam shadowing 1
+
+package "Camera Module" {
+    [camera_service.py] as camera
+    note right of camera
+        Single camera instance
+        MJPEG streaming
+        Capture to disk
+        Simple API
+    end note
+}
+
+package "LED Module" {
+    [led_service.py] as led
+    note right of led
+        Event queue driven
+        System status display
+        Battery level display
+        Camera state display
+    end note
+}
+
+package "Battery Module" {
+    [battery_monitor.py] as battery
+    note right of battery
+        UPS-Lite v1.3 I2C
+        Voltage/level polling
+        Events on change
+        Auto-shutdown logic
+    end note
+}
+
+package "Web Interface" {
+    [web_server.py] as web
+    note right of web
+        Flask HTTP server
+        Static HTML/CSS/JS
+        REST API endpoints
+        Gallery management
+    end note
+}
+
+package "Event Bus" {
+    [event_bus.py] as events
+    note right of events
+        Simple pub/sub
+        Thread-safe queue
+        Typed events
+        No persistence
+    end note
+}
+
+camera --> events : publish camera_ready\npublish frame_captured
+battery --> events : publish battery_low\npublish charging_changed
+led <-- events : subscribe all events
+web --> camera : HTTP calls
+web --> events : publish user_action
+web <-- events : subscribe system_status
+
+note bottom of events
+    Event types:
+    - CAMERA_READY
+    - CAMERA_ERROR
+    - FRAME_CAPTURED
+    - BATTERY_LOW
+    - BATTERY_CHARGING
+    - SYSTEM_ERROR
+end note
+
+@enduml

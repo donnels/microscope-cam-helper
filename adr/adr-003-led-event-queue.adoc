@@ -1,0 +1,135 @@
+= ADR-003: LED Event Queue Pattern
+
+*Status:* Proposed
+
+*Date:* 2025-12-15
+
+== Context
+
+LED control needed from multiple sources:
+* Web server on image capture
+* Battery monitor for status
+* Camera service for streaming indicator
+* System health checks
+* Admin interface for testing
+
+Direct function calls create tight coupling.
+LED operations block calling code.
+Multiple sources compete for LED control.
+
+Event queue pattern designed in architecture docs.
+Worker thread processes events async.
+Decouples producers from LED hardware.
+
+Current code uses direct LED function calls.
+
+== Decision
+
+Event queue pattern is design goal.
+Direct calls acceptable for current simple use case.
+
+Implement event queue when:
+* Battery monitoring integrated
+* Multi-camera switching added
+* LED admin interface created
+* Animation conflicts occur
+
+== Consequences
+
+=== Positive - Direct Calls (Current)
+
+* Simple implementation
+* Fewer moving parts
+* Easy to debug
+* No queue overhead
+* Adequate for single camera
+
+=== Negative - Direct Calls (Current)
+
+* Tight coupling between modules
+* LED calls may block
+* Cannot prioritize events
+* Hard to add new LED features
+* Testing requires hardware
+
+=== Positive - Event Queue (Future)
+
+* Async non-blocking operations
+* Multiple producers supported
+* Priority queue possible
+* Centralized LED logic
+* Easy testing via event injection
+* Animations don't conflict
+
+=== Negative - Event Queue (Future)
+
+* More complex
+* Additional thread management
+* Queue full scenarios
+* Event ordering considerations
+
+== Implementation Plan
+
+.Phase 1 (current):
+* Direct LED calls in web server
+* Simple flash on capture
+* System status indication
+
+.Phase 2 (when battery added):
+* Introduce event queue
+* Worker thread processes events
+* Battery publishes status events
+* Web server publishes capture events
+
+.Phase 3 (multi-camera):
+* Streaming events per camera
+* Source indicator on LEDs
+* Camera switching animations
+
+== Technical Details
+
+=== Event Types
+
+[source,python]
+----
+EventType.SYSTEM_STATUS  -> Row 0: System health (green)
+EventType.STREAMING      -> Row 1: Streaming active (red)
+EventType.CAPTURE        -> Row 2: Capture flash (white)
+EventType.BATTERY        -> Row 3: Battery gauge (8 LEDs)
+EventType.ANIMATION      -> Startup/shutdown/rainbow/pulse
+EventType.TEST           -> Test patterns for admin page
+EventType.SHUTDOWN       -> Low battery warning (blink red)
+----
+
+=== LED Row Assignment
+
+* Row 3 (Top): Battery Level (8-LED gauge)
+** Green=full, Yellow=med, Orange=low, Red=critical
+** Cyan=charging       
+* Row 2: Capture Flash (white, 2s)
+* Row 1: Streaming Status (red when active)
+** Source indicator possible
+* Row 0 (Bottom): System Status (green when OK)
+** Left half=camera, Right half=system
+
+=== Benefits
+
+* Async/non-blocking - no delays in main app
+* Multiple sources can send events
+* Centralized LED control logic
+* Easy to add battery, temp, etc.
+* Test mode can inject events
+* Python stdlib only (no MQTT overhead)
+
+== LED Test Interface
+
+.Admin page at `/admin/leds` with:
+* Event injection controls
+* Animation triggers
+* Current state display
+* Test patterns
+* Battery simulation
+
+== References
+
+Pattern documented but deferred until needed.

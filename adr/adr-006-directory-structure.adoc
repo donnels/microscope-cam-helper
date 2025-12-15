@@ -1,0 +1,55 @@
+= ADR-006: Directory Structure
+
+*Status:* Accepted
+
+*Date:* 2025-12-15
+
+== Context
+
+* Need a clear directory structure for project.
+* Want to have this as a well documented project.
+* People should find files easily (others and me).
+
+== Decision
+
+[source]
+----
+/docker/
+  /docker-microscope/     # Container application
+  docker-compose.yml      # Service definition
+  README.adoc            # Docker deployment docs
+
+/adr/                    # Architecture decisions
+
+/prep-scripts/          # Hardware prep and test scripts
+
+/images/                 # Diagrams and screenshots
+
+Root level files:
+  README.asciidoc        # Main project docs (consolidated)
+----
+
+== Consequences
+
+=== Positive
+
+* Clear separation of concerns
+* Docker files grouped logically
+* Build context simplified
+* Easier to find components
+
+== Rationale
+
+`/docker` groups all container-related files.
+Sub-directory per container project.
+Multiple containers possible in future.
+
+Example expansion:
+[source]
+----
+/docker/
+  /docker-microscope/
+  /docker-analysis/       # Future: image processing
+  /docker-storage/        # Future: backup service
+  docker-compose.yml      # Orchestrates all
+----

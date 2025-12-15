@@ -1,0 +1,129 @@
+= ADR-007: Privileged Container Mode Removal
+
+*Status:* Accepted
+
+*Date:* 2025-12-15
+
+== Context
+
+Initial container configuration used `privileged: true`.
+
+.Original justification:
+* Hardware access for GPIO
+* SPI interface for LEDs
+* I2C for battery monitor
+* Video device access
+
+Privileged mode grants full host access.
+
+.Container can:
+* Access all devices
+* Modify kernel settings
+* Escape container isolation
+* Bypass security controls
+
+.Problem?
+* Violates least-privilege principle.
+** But does it matter here as the things is dedicated anyhow
+
+== Decision
+
+Remove privileged mode completely.
+Use specific device mappings only.
+
+.Devices explicitly mapped:
+* `/dev/video1` - Camera capture
+* `/dev/gpiomem` - GPIO memory (LEDs)
+* `/dev/spidev0.0` - SPI interface (Unicorn HAT)
+* `/dev/i2c-1` - I2C bus (battery monitor)
+* `/dev/vchiq` - VideoCore interface
+* `/dev/vcsm-cma` - VideoCore shared memory
+
+.Read-only volumes:
+* `/sys:ro` - System information
+* `/run/udev:ro` - Device events
+
+== Consequences
+
+=== Positive
+
+* Reduced attack surface
+* Container isolation maintained
+* Host protection enhanced
+** not as important right now but maybe in future
+* Follows security best practices
+* Complies with security standards
+
+=== Negative
+
+* More verbose device configuration
+* Must update for new hardware
+* Device permissions still required on host
+* Some features may need capabilities
+
+== Host Configuration Required
+
+Devices must exist with proper permissions:
+
+[source,bash]
+----
+# Enable I2C and SPI
+sudo raspi-config
+# Interface Options → I2C → Enable
+# Interface Options → SPI → Enable
+
+# User in required groups
+sudo usermod -aG video,spi,i2c,gpio $USER
+----
+
+Device permissions checked on startup.
+Container should fail fast if devices inaccessible.
+
+== Capabilities Considered
+
+Alternative to privileged mode: Linux capabilities.
+
+.Potential:
+* `CAP_SYS_ADMIN` - Not required
+* `CAP_SYS_RAWIO` - Not required
+* `CAP_NET_ADMIN` - Not required
+
+Device access sufficient.
+
+If future features need capabilities:
+[source,yaml]
+----
+cap_add:
+  - SPECIFIC_CAPABILITY
+----
+
+Document in ADR with justification.
+
+== Shutdown Capability
+
+Battery monitoring may need system shutdown.
+Options:
+
+. External shutdown monitor (chosen)
+   ** Container reports battery status
+   ** External service handles shutdown
+   ** No container privileges needed
+
+. Shutdown capability
+   ** Add `CAP_SYS_BOOT`
+   ** Container can shutdown host
+   ** Security consideration
+
+Current: Battery monitoring deferred.
+
+== Testing Results
+
+Container tested without privileged mode:
+* Camera access: Works
+* LED control: Works
+* SPI communication: Works
+* I2C access: Works (when enabled - Duh)
+* Video capture: Works
+
+All functionality maintained.
+No privileged mode required.

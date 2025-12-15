@@ -1,0 +1,98 @@
+= ADR-002: Security Model and Authentication
+
+*Status:* Accepted
+
+*Date:* 2025-12-15
+
+== Context
+
+System provides web interface for microscope camera control.
+Might handle sensitive microscope images and captures.
+Network exposure requires protection against unauthorized access.
+
+.Security requirements:
+* Prevent unauthorized access to camera controls
+* Protect captured images from unauthorized viewing or deletion
+* Encrypt network traffic to prevent interception
+* Prevent file system attacks through path manipulation
+* Limit container privileges to reduce attack surface
+* Enable monitoring without compromising security
+
+== Decision
+
+Implement layered security approach:
+
+=== Authentication
+
+Basic HTTP authentication on all endpoints except health check.
+Credentials configured via environment variables (in MVP).
+Health endpoint remains unauthenticated for monitoring systems.
+
+=== HTTPS/TLS
+
+* Self-signed certificate generated during container build.
+* HTTPS enabled by default.
+* HTTP fallback available via configuration.
+* Possible next step with let's encrypt and forward proxy (as opposed to reverse).
+** Forward proxy allows encapsulated environment with own domain not exposed to internet.
+
+=== Path Traversal Protection
+
+All file operations validate resolved paths.
+Python `pathlib.resolve().is_relative_to()` prevents directory traversal.
+Only files within `/app/captures` accessible.
+
+=== Least Privilege
+
+* Remove privileged container mode (needs to be tested and might return).
+* Map specific devices only.
+* No unnecessary host access.
+
+== Consequences
+
+=== Positive
+
+* Unauthorized access prevented
+* Network traffic encrypted
+* File system attacks blocked
+* Reduced attack surface
+* Health monitoring still functional
+* Simple credential management
+** MVP for one user
+
+=== Negative
+
+* Self-signed certificate triggers browser warnings
+* Basic auth not suitable for high-security environments
+* Credentials stored in compose file
+* No multi-user support
+* No audit logging
+* No rate limiting
+
+=== Mitigation
+
+* Document security limitations.
+* Recommend reverse/forward proxy for production.
+* Provide credential generation guidance.
+* Plan proper authentication for production use.
+
+=== Implementation
+
+.Environment variables:
+* `WEB_USERNAME` - Authentication username
+* `WEB_PASSWORD` - Authentication password
+* `ENABLE_HTTPS` - Enable HTTPS mode
+
+Certificate location: `/app/certs/`
+
+Protected endpoints: All except `/health`
+
+== Future Improvements
+
+* OAuth2/OIDC integration
+* Certificate management via Let's Encrypt
+* Audit logging
+* Rate limiting
+* Session management
+* Multi-user support
+* Role-based access control

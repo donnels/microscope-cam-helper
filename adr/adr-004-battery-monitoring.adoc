@@ -1,0 +1,116 @@
+= ADR-004: Battery Monitoring Architecture
+
+*Status:* Proposed
+
+*Date:* 2025-12-15
+
+== Context
+
+Pi Zero runs on UPS PIco battery HAT.
+System must protect against data loss on power failure.
+
+.Battery status needed for:
+* Graceful shutdown below threshold
+* LED battery gauge display
+* System health monitoring
+
+== Decision
+
+Integrate battery monitoring when LED event queue implemented.
+Monitor UPS PIco via I2C at address 0x69.
+Implement three-tier threshold system.
+
+=== Thresholds
+
+Low warning: 20%
+* Yellow/orange LEDs
+* Log warning
+
+Critical: 10%
+* Red blinking LEDs
+* Initiate shutdown countdown
+
+Emergency: <5%
+* Immediate shutdown
+* Flush buffers
+* Safe camera stop
+
+=== Shutdown Sequence
+
+. Detect battery below critical threshold
+. Send shutdown event to LED (red blink 5x)
+. Wait 3 seconds for visual warning
+. Stop camera gracefully
+. Flush capture buffer
+. Execute system shutdown
+
+== Consequences
+
+=== Positive
+
+* Data loss prevented
+* Clear battery warnings
+* Graceful shutdown
+* User sees battery status
+* System protected
+
+=== Negative
+
+* Additional monitoring thread
+* Shutdown may interrupt captures
+* Battery HAT required for full function
+
+=== Implementation
+
+Environment variables:
+* `ENABLE_BATTERY_MONITOR` - Enable/disable
+* `BATTERY_LOW_THRESHOLD` - Default 20
+* `BATTERY_CRITICAL_THRESHOLD` - Default 10
+
+Battery monitor runs in separate thread.
+Polls every 5 seconds.
+Publishes events to LED queue.
+
+== Integration Points
+
+.Battery service:
+* `battery_status.py` - Already exists
+* I2C communication with UPS-lite v1.3
+* Voltage and capacity reading
+* Charging status detection
+
+.LED display:
+* Row 3 (top) - 8-LED battery gauge
+* Green when full
+* Yellow when low
+* Red when critical
+* Cyan when charging
+
+.Web interface:
+* Battery status in system info
+* Charge percentage displayed
+* Charging indicator
+
+.Health endpoint:
+* Include battery status
+* Warning if below threshold
+
+== Safety Considerations
+
+Shutdown initiated by container.
+Requires host shutdown capability.
+May need privileged mode or specific capability.
+
+Alternative: Notify external monitor.
+External system handles shutdown.
+Container only reports status.
+
+== Current Status
+
+Module exists: `docker/docker-microscope/battery_status.py`
+
+Not imported in web server.
+Not integrated with LED system.
+Environment variables configured in compose.
+
+Waiting for LED event queue implementation.

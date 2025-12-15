@@ -1,0 +1,39 @@
+# Environment file with credentials
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Captures (stored in Docker volume)
+captures/
+*.png
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+.cache/

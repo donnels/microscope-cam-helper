@@ -1,0 +1,306 @@
+= USB Microscope Camera Web Interface
+ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+endif::[]
+:toc: right
+:sectnums:
+:sectnumlevels: 5
+:toclevels: 5
+:flag-book: true
+:source-highlighter: rouge
+:rouge-style: github
+
+== Description
+Docker container setup for streaming USB microscope camera via web interface on Raspberry Pi Zero.
+
+.Why?
+* Had a few zeros hanging around (one used here for now)
+* had a camera on a microscope (USB and HDMI)
+* have some assorted pi cameras too (one with night vision)
+* wanted web interface for easy access
+* had a led hat for status display
+* battery is there so why not use it
+* have some other cameras too (HDMI)
+
+What this is not designed to do is to be the go to interface for working with the stereo microscope. Looking through, live, beats using a latency plagued USB/HDMI/Whatever abstraction layer. This is an augmentation to assist and not take over. HDMI still beats the pi zero for live viewing by a long way.
+
+== Quick Start
+
+For fully automated setup, run the one-click script:
+
+[,bash]
+----
+./run-me-first.sh
+----
+
+It will:
+- Prompt for your Pi hostname/IP
+- Set up SSH access (generate keys and copy if needed)
+- Copy required files to Pi
+- Run comprehensive testing and container build
+
+Manual steps if preferred:
+
+1. Copy `prep-scripts` and `docker` directories to your Raspberry Pi:
+
+[,bash]
+----
+scp -r prep-scripts docker user@pi-host:~/
+----
+
+2. Run the comprehensive test script to install dependencies and verify hardware:
+
+[,bash]
+----
+ssh user@pi-host
+cd prep-scripts
+./comprehensive-test.sh
+----
+
+3. Start the microscope camera service:
+
+[,bash]
+----
+cd ../docker/docker-microscope
+sudo docker-compose up -d
+----
+
+4. Access the web interface at `https://<pi-ip>:8443`
+
+See detailed setup and configuration instructions below.
+
+== Hardware used
+
+* Raspberry Pi Zero (or Pi Zero 2)
+* MacroSilicon USB Video device (ID 534d:2109)
+* USB microscope with HDMI output (and USB)
+* HDMI to USB capture adapter
+* Pimoroni Unicorn HAT (4x8 LED matrix) - optional for status display
+* UPS-lite v1.3
+
+== LED Status Display (Unicorn HAT)
+
+The Pimoroni Unicorn HAT provides visual feedback through a 4x8 LED matrix:
+
+=== Row Layout (bottom to top)
+
+**Row 0 (Bottom)**: System Status
+----
+Green = All systems operational (camera + USB working)
+Partial Green = Some systems operational
+Off = Systems not ready
+----
+
+**Row 1**: Streaming Status
+----
+Red = Video streaming active
+Off = Not streaming
+----
+
+**Rows 2-3 (Top)**: Capture Flash
+----
+Bright White Flash = Image captured successfully
+Duration: 0.5 seconds
+----
+
+=== Startup Sequence
+
+On container start, LEDs animate bottom to top in blue, then show current system status.
+
+=== Error Pattern
+
+If camera fails to initialize, LEDs flash alternating red rows.
+
+== System Setup
+
+See the included documentation below for detailed setup instructions.
+
+=== Pi Zero Status Check
+
+.Verify system information:
+[source,bash]
+----
+uname -a
+----
+
+Output shows ARMv6 architecture:
+----
+Linux piz-micoscope 6.12.47+rpt-rpi-v6 #1 Raspbian 1:6.12.47-1+rpt1~bookworm (2025-09-16) armv6l GNU/Linux
+----
+
+//prep and testing
+include::./prep-scripts/README.adoc[leveloffset=+3]
+
+== Access Web Interface
+
+.Open browser on same network:
+* link:https://<pi-zero-ip>:8443[]
+
+.Stream endpoint:
+* link:https://<pi-zero-ip>:8443/?action=stream[]
+
+== Configuration
+
+.Edit environment variables in `docker-compose.yml`:
+[source,yaml]
+----
+environment:
+  - VIDEO_DEVICE=/dev/video0    # USB device path
+  - VIDEO_WIDTH=1280            # Resolution width
+  - VIDEO_HEIGHT=720            # Resolution height  
+  - VIDEO_FPS=30                # Frames per second
+  - WEB_PORT=8443               # Web interface port
+  - ENABLE_LEDS=true            # Enable Unicorn HAT display
+----
+
+.To disable LED display (if no Unicorn HAT):
+[source,yaml]
+----
+  - ENABLE_LEDS=false
+----
+
+.Common resolutions for microscope cameras:
+* 640x480 @ 30fps (default, lowest latency)
+* 1280x720 @ 30fps (HD quality)
+* 1920x1080 @ 15fps (Full HD, lower fps)
+
+== Troubleshooting
+
+=== ARMv6 vs ARMv7 Architecture Error
+
+.Pi Zero uses ARMv6. If you see platform mismatch warnings:
+[,console]
+----
+[Warning] The requested image's platform (linux/arm/v7) does not match 
+the detected host platform (linux/arm/v6)
+----
+
+.Solution: 
+* Dockerfile now uses `balenalib/raspberry-pi-debian` which supports ARMv6.
+
+=== Build Fails with Code 139
+
+.Segmentation fault during build. potentially caused by:
+* Wrong base image architecture
+* Out of memory during compilation
+
+.Solution: 
+* Use the updated Dockerfile with minimal dependencies and pre-built packages.
+
+=== Device Not Found
+
+.Check USB device permissions:
+[source,bash]
+----
+ls -la /dev/video0
+sudo chmod 666 /dev/video0
+----
+
+.Add user to video group:
+[source,bash]
+----
+sudo usermod -aG video $USER
+----
+
+=== Unsupported Format
+
+.List supported formats:
+[source,bash]
+----
+v4l2-ctl --device=/dev/video0 --list-formats-ext
+----
+
+Adjust resolution in `docker-compose.yml` to match supported format.
+
+=== Container Fails to Start
+
+.Check container logs:
+[source,bash]
+----
+docker-compose logs microscope
+----
+
+.Rebuild container:
+[source,bash]
+----
+docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
+----
+
+=== Container Permissions
+
+Container runs with privileged mode (ran with) and has access to:
+
+* `/dev/video0` - USB video device
+* `/dev/gpiomem` - GPIO memory for LED control
+* `/dev/spidev0.0` - SPI interface for Unicorn HAT
+* `/sys` - System files (read-only) for hardware detection
+
+These permissions allow the container to control the Unicorn HAT LEDs and access the USB camera.
+
+=== Low Performance on Pi Zero (if you hit that)
+
+Pi Zero (ARMv6) has limited CPU. Reduce resolution and framerate:
+
+[source,yaml]
+----
+environment:
+  - VIDEO_WIDTH=320
+  - VIDEO_HEIGHT=240
+  - VIDEO_FPS=15
+----
+
+=== LEDs Not Working
+
+Check Unicorn HAT is properly connected and SPI is enabled:
+
+[source,bash]
+----
+ls -la /dev/spidev0.0
+# Should show: crw-rw---- 1 root spi
+----
+
+Enable SPI if needed:
+[source,bash]
+----
+sudo raspi-config
+# Interface Options -> SPI -> Enable
+----
+
+Check container has device access:
+[source,bash]
+----
+sudo docker exec microscope-camera ls -la /dev/spidev0.0 /dev/gpiomem
+----
+
+=== Multiple Video Devices
+
+If multiple video devices exist, specify correct device:
+
+[source,bash]
+----
+v4l2-ctl --list-devices
+----
+
+Update `VIDEO_DEVICE` environment variable accordingly.
+
+//Docker container chapter
+include::./docker/README.adoc[leveloffset=+1]
+
+[appendix]
+== References
+
+* link:https://github.com/jacksonliam/mjpg-streamer[mjpg-streamer GitHub]
+* link:https://www.kernel.org/doc/html/latest/userspace-api/media/v4l/v4l2.html[Video4Linux2 API]
+
+[appendix]
+== images
+include::./images/README.adoc[leveloffset=+2]
+
+[appendix]
+include::./adr/README.adoc[leveloffset=+1]

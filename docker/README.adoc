@@ -1,0 +1,635 @@
+= Pi Zero Microscope Setup
+:toc:
+
+Fresh Raspberry Pi OS setup to production deployment.
+
+== Build/Rebuild
+
+.To rebuild from scratch:
+. Flash fresh Raspberry Pi OS
+.. Configure WiFi and user (in the step above with RPI imager)
+. Follow this document
+. Deploy container
+
+No manual package installation.
+No system package breaking.
+Reproducible deployment.
+
+== Initial Setup
+
+Fresh Raspberry Pi OS Lite installed.
+WiFi configured.
+User `sean` created.
+
+Hostname: `piz-microscope`
+
+SSH from workstation:
+[,bash]
+----
+ssh-copy-id sean@piz-microscope.fritz.box
+ssh sean@piz-microscope.fritz.box
+----
+
+== Enable Hardware Interfaces
+
+.Enable I2C and SPI for hardware access.
+[,bash]
+----
+sudo raspi-config
+----
+
+.Steps:
+. Interface Options → I2C → Enable
+. Interface Options → SPI → Enable
+. Finish → Reboot
+
+.Verify:
+[,bash]
+----
+ls /dev/i2c-* /dev/spi*
+----
+
+.Expected:
+[,console]
+----
+/dev/i2c-1
+/dev/spidev0.0
+/dev/spidev0.1
+----
+
+== Install Docker
+
+Docker provides container runtime.
+No application packages on host.
+
+.Install Docker:
+[,bash]
+----
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker sean
+----
+
+Logout and login to apply group.
+
+.Verify:
+[,bash]
+----
+docker --version
+----
+
+== Install Docker Compose
+
+.Install Docker Compose:
+[,bash]
+----
+sudo apt update
+sudo apt install docker-compose
+----
+
+.Verify:
+[,bash]
+----
+docker-compose --version
+----
+
+== Environment Configuration
+
+Configuration via `.env` file.
+
+=== Setup
+
+Copy example file:
+
+[source,bash]
+----
+cd docker
+cp .env.example .env
+----
+
+Edit `.env` with your values.
+
+=== Required Changes
+
+Change authentication credentials:
+
+[source,bash]
+----
+WEB_USERNAME=your_username
+WEB_PASSWORD=your_secure_password
+----
+
+=== Configuration Variables
+
+==== Camera
+
+[source]
+----
+VIDEO_DEVICE=/dev/video1
+VIDEO_WIDTH=1280
+VIDEO_HEIGHT=720
+VIDEO_FPS=30
+----
+
+==== Web Server
+
+[source]
+----
+WEB_PORT=8080
+ENABLE_HTTPS=true
+----
+
+==== Authentication
+
+[source]
+----
+WEB_USERNAME=admin
+WEB_PASSWORD=your_secure_password_here
+----
+
+==== Hardware
+
+[source]
+----
+ENABLE_LEDS=true
+ENABLE_BATTERY_MONITOR=true
+----
+
+==== Battery
+
+[source]
+----
+BATTERY_LOW_THRESHOLD=20
+BATTERY_CRITICAL_THRESHOLD=10
+----
+
+=== Deployment
+
+Docker Compose reads `.env` automatically.
+
+Start service:
+
+[source,bash]
+----
+cd docker
+docker-compose up -d
+----
+
+Variables passed to container.
+Defaults used if not set.
+
+=== Security
+
+`.env` file contains credentials.
+Never commit to git.
+Added to `.gitignore`.
+
+Share `.env.example` instead.
+Each deployment creates own `.env`.
+
+Backup `.env` securely.
+Rotate credentials regularly.
+
+== Deploy Application
+
+.Copy project to Pi:
+[,bash]
+----
+scp -r docker sean@piz-microscope.fritz.box:~/
+----
+
+.On Pi:
+[,bash]
+----
+cd docker
+sudo docker-compose up -d
+----
+
+.Access web interface:
+* link:https://piz-microscope.fritz.box:8080[] (HTTPS with self-signed cert)
+* link:https://piz-microscope.fritz.box:8443[] (HTTPS primary)
+
+.Default credentials:
+* Username: admin
+* Password: changeme_generate_secure_password (change in .env)
+
+== Security Configuration
+
+Security features implemented in microscope system.
+
+=== Authentication
+
+Basic HTTP authentication protects all endpoints.
+Health endpoint remains unauthenticated for monitoring.
+
+==== Credentials
+
+Configure in `.env` file:
+
+[source,bash]
+----
+WEB_USERNAME=admin
+WEB_PASSWORD=your_secure_password_here
+----
+
+Copy example file:
+
+[source,bash]
+----
+cd docker
+cp .env.example .env
+----
+
+Edit credentials in `.env`.
+
+Default username: `admin`
+Default password: `changeme_generate_secure_password`
+
+Change before deployment.
+Never commit `.env` to git.
+
+=== HTTPS/TLS
+
+Self-signed certificate generated during build.
+Valid for 365 days.
+
+==== Certificate Details
+
+Location: `/app/certs/`
+Files: `cert.pem`, `key.pem`
+
+Certificate info:
+- Country: DE
+- Organization: VSaGCR
+- Common Name: microscope.local
+
+==== Disable HTTPS
+
+Set in `.env` file:
+
+[source,bash]
+----
+ENABLE_HTTPS=false
+----
+
+=== Path Traversal Protection
+
+All file operations validate paths.
+Only files in `/app/captures` accessible.
+
+Validation uses `filepath.resolve().is_relative_to()`.
+Invalid paths rejected with 400 error.
+
+=== Privileged Mode Removed
+
+Container runs without privileged mode.
+Specific device access only.
+
+Devices mapped:
+- `/dev/video1` - Camera
+- `/dev/gpiomem` - GPIO
+- `/dev/spidev0.0` - SPI
+- `/dev/i2c-1` - I2C
+
+=== Health Check
+
+Path: `/health`
+
+Unauthenticated endpoint for monitoring.
+Returns 200 if camera operational.
+Returns 503 if camera error.
+
+[source,bash]
+----
+curl https://localhost:8443/health
+----
+
+=== Protected Endpoints
+
+All require authentication:
+
+- `/` - Main interface
+- `/stream` - Video feed
+- `/capture` - Image capture
+- `/status` - System status
+- `/captures` - List images
+- `/captures/<filename>` - Get image
+- `/batch/download` - Batch download
+- `/batch/delete` - Batch delete
+
+=== Recommendations
+
+Store credentials in `.env` file.
+File excluded from git via `.gitignore`.
+
+Generate strong password:
+
+[source,bash]
+----
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+----
+
+Update `.env` with generated password.
+
+Use reverse proxy for production.
+Terminate TLS with valid certificate.
+Add rate limiting.
+
+=== File Security
+
+`.env` contains sensitive credentials.
+Never commit to version control.
+Added to `.gitignore` automatically.
+
+Share `.env.example` instead.
+Each deployment creates own `.env`.
+
+Backup `.env` file securely.
+Rotate credentials regularly.
+
+=== Known Limitations
+
+Self-signed certificate triggers browser warnings.
+Accept certificate or add to trusted store.
+
+No password complexity requirements.
+No account lockout mechanism.
+No audit logging.
+
+Plan proper authentication system for production.
+
+== Verify Hardware
+
+Container runs tests on startup.
+
+.Check logs:
+[,bash]
+----
+sudo docker logs microscope-camera
+----
+
+.Expected:
+[,console]
+----
+Unicorn HAT initialized successfully
+CW2015 battery monitor initialized
+Camera /dev/video1 opened
+----
+
+== Host State
+
+.After setup, host has:
+* Docker installed
+* I2C enabled
+* SPI enabled
+* User in docker group
+
+.Host does NOT have:
+* Python packages
+* Application code (only in container)
+* Manual dependencies
+
+Clean host. Container has everything.
+
+== Planned Features Not Yet Implemented
+
+Features designed in architecture but not implemented.
+See ADRs for detailed specifications:
+
+* ADR-003: LED Event Queue Pattern
+* ADR-004: Battery Monitoring Architecture  
+* ADR-005: Multi-Camera Source Management
+
+=== Current Implementation Status
+
+* Battery monitoring module exists but not integrated
+* Event queue architecture designed but not implemented
+* Multi-camera support planned but single camera only
+* LED admin interface designed but endpoint missing
+* Stream deck UI mockup created but not built
+* Health endpoint referenced but not implemented
+
+=== Implementation Priority
+
+. Fix security issues first ✓
+. Add health endpoint for monitoring
+. Integrate battery monitoring
+. Implement event queue pattern
+. Add multi-camera support
+. Build admin interface
+. Create stream deck UI
+
+== Security Fixes and Improvements Applied
+
+Security vulnerabilities fixed.
+All changes documented.
+
+=== Critical Fixes
+
+==== Path Traversal Vulnerability
+
+*Issue:* `batch_delete()` and file operations accepted user filenames without validation.
+
+*Fix:* All file operations now validate paths using `filepath.resolve().is_relative_to()`.
+
+Files:
+* `docker/docker-microscope/web_server.py`
+
+Endpoints protected:
+* `/captures/<filename>`
+* `/batch/download`
+* `/batch/delete`
+
+==== Authentication Added
+
+*Issue:* No authentication on any endpoint.
+
+*Fix:* Basic HTTP authentication on all endpoints except health check.
+
+Configuration:
+* Username: `WEB_USERNAME` environment variable
+* Password: `WEB_PASSWORD` environment variable
+
+Protected endpoints:
+* `/` - Main interface
+* `/stream` - Video feed
+* `/capture` - Image capture
+* `/status` - System status
+* `/captures` - List images
+* All batch operations
+
+==== HTTPS Support
+
+*Issue:* Unencrypted HTTP traffic.
+
+*Fix:* Self-signed certificate generated during build.
+
+Files modified:
+* `docker/docker-microscope/Dockerfile` - Certificate generation
+* `docker/docker-microscope/web_server.py` - SSL context handling
+
+Configuration:
+* `ENABLE_HTTPS` environment variable
+* Certificate path: `/app/certs/`
+
+==== Privileged Mode Removed
+
+*Issue:* Container ran with `privileged: true`.
+
+*Fix:* Removed privileged mode from compose file.
+
+Files:
+* `docker/docker-compose.yml`
+
+Container now uses specific device mappings only.
+
+=== Configuration Changes
+
+==== Environment Variables Centralized
+
+All configuration moved to `docker-compose.yml`.
+
+Variables added:
+* `WEB_USERNAME` - Default: admin
+* `WEB_PASSWORD` - Default: changeme_generate_secure_password
+* `ENABLE_HTTPS` - Default: true
+* `BATTERY_LOW_THRESHOLD` - Default: 20
+* `BATTERY_CRITICAL_THRESHOLD` - Default: 10
+
+==== Health Check Added
+
+Endpoint: `/health`
+
+Unauthenticated for monitoring systems.
+Returns 200 if camera operational.
+Returns 503 if camera error.
+
+Docker healthcheck configured in compose file.
+
+==== Ports Updated
+
+Exposed ports:
+* 8080 - HTTP/HTTPS web interface
+* 8443 - Additional HTTPS port
+
+=== Documentation Created
+
+==== New Files
+
+`docker/PLANNED_FEATURES.adoc`
+* Lists unimplemented features from architecture
+* Battery monitoring integration
+* Event queue system
+* Multi-camera switching
+* LED admin interface
+* Stream deck interface
+
+`docker/SECURITY.adoc`
+* Security configuration guide
+* Authentication setup
+* HTTPS configuration
+* Path protection details
+* Recommendations
+
+`adr/adr-002-security-model.adoc`
+* Architecture decision record
+* Security model rationale
+* Implementation details
+* Trade-offs documented
+
+==== Updated Files
+
+`docker/README.adoc`
+* Updated deployment instructions
+* Added authentication details
+* Fixed paths after restructure
+
+`include-setup.adoc`
+* Fixed file structure documentation
+* Removed references to nonexistent examples directory
+* Content consolidated into main `README.asciidoc`
+
+`prep-scripts/README.adoc`
+* Fixed test deployment paths
+
+`adr/README.adoc`
+* Added ADR-002 include
+
+=== Files Modified
+
+==== Core Application
+
+`docker/docker-microscope/web_server.py`
+* Added authentication system
+* Added HTTPS support
+* Fixed path traversal vulnerabilities
+* Added health endpoint
+* Environment-based configuration
+
+`docker/docker-microscope/Dockerfile`
+* Added openssl package
+* Generate self-signed certificate
+* Expose port 8443
+
+`docker/docker-microscope/docker_entrypoint.sh`
+* Use VIDEO_DEVICE from environment consistently
+* Remove hardcoded /dev/video0 references
+
+=== Deployment Changes
+
+Default password must be changed.
+Generate secure password before deployment.
+
+Access interface at:
+* https://hostname:8080 (HTTPS)
+* https://hostname:8443 (HTTPS primary)
+
+Browser shows certificate warning.
+Accept self-signed certificate or add to trusted store.
+
+=== Security Recommendations
+
+Change default password in compose file.
+Use reverse proxy for production.
+Terminate TLS with valid certificate.
+Add rate limiting at proxy level.
+
+Generate password:
+[source,bash]
+----
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+----
+
+=== Testing
+
+Test authentication:
+[source,bash]
+----
+curl -u admin:password https://hostname:8080/
+----
+
+Test health endpoint:
+[source,bash]
+----
+curl https://hostname:8443/health
+----
+
+Test path traversal protection:
+[source,bash]
+----
+curl -u admin:password https://hostname:8080/captures/../etc/passwd
+# Should return 400 Bad Request
+----
+
+=== Next Steps
+
+Security fixes complete.
+System ready for deployment.
+
+Consider:
+* Deploy and test authentication
+* Generate production password
+* Set up reverse proxy
+* Monitor health endpoint
+* Review security documentation
+
