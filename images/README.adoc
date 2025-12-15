@@ -5,7 +5,7 @@ ifdef::flag-book[]
 endif::[]
 
 == here the overall idea
-:
+
 .Architecture
 image::./architecture.svg[]
 
