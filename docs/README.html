@@ -809,61 +809,32 @@ pre.rouge .gs {
 <li><a href="#_current_status">C.3.5.6. Current Status</a></li>
 </ul>
 </li>
-<li><a href="#_adr_005_multi_camera_source_management">C.3.6. ADR-005: Multi-Camera Source Management</a>
+<li><a href="#_adr_006_directory_structure">C.3.6. ADR-006: Directory Structure</a>
 <ul class="sectlevel4">
 <li><a href="#_context_6">C.3.6.1. Context</a></li>
-<li><a href="#_decision_6">C.3.6.2. Decision</a>
-<ul class="sectlevel5">
-<li><a href="#_detection_strategy">C.3.6.2.1. Detection Strategy</a></li>
-<li><a href="#_switching_approaches">C.3.6.2.2. Switching Approaches</a></li>
-</ul>
-</li>
+<li><a href="#_decision_6">C.3.6.2. Decision</a></li>
 <li><a href="#_consequences_6">C.3.6.3. Consequences</a>
 <ul class="sectlevel5">
-<li><a href="#_positive_deferred">C.3.6.3.1. Positive - Deferred</a></li>
-<li><a href="#_negative_deferred">C.3.6.3.2. Negative - Deferred</a></li>
-<li><a href="#_positive_when_implemented">C.3.6.3.3. Positive - When Implemented</a></li>
-<li><a href="#_negative_when_implemented">C.3.6.3.4. Negative - When Implemented</a></li>
+<li><a href="#_positive_5">C.3.6.3.1. Positive</a></li>
 </ul>
 </li>
-<li><a href="#_implementation_plan_2">C.3.6.4. Implementation Plan</a></li>
-<li><a href="#_stream_deck_interface">C.3.6.5. Stream Deck Interface</a>
-<ul class="sectlevel5">
-<li><a href="#_features">C.3.6.5.1. Features</a></li>
-<li><a href="#_ui_layout">C.3.6.5.2. UI Layout</a></li>
+<li><a href="#_rationale">C.3.6.4. Rationale</a></li>
 </ul>
 </li>
-<li><a href="#_configuration_2">C.3.6.6. Configuration</a></li>
-<li><a href="#_led_integration">C.3.6.7. LED Integration</a></li>
-<li><a href="#_current_status_2">C.3.6.8. Current Status</a></li>
-</ul>
-</li>
-<li><a href="#_adr_006_directory_structure">C.3.7. ADR-006: Directory Structure</a>
+<li><a href="#_adr_007_privileged_container_mode_removal">C.3.7. ADR-007: Privileged Container Mode Removal</a>
 <ul class="sectlevel4">
 <li><a href="#_context_7">C.3.7.1. Context</a></li>
 <li><a href="#_decision_7">C.3.7.2. Decision</a></li>
 <li><a href="#_consequences_7">C.3.7.3. Consequences</a>
 <ul class="sectlevel5">
-<li><a href="#_positive_5">C.3.7.3.1. Positive</a></li>
+<li><a href="#_positive_6">C.3.7.3.1. Positive</a></li>
+<li><a href="#_negative_5">C.3.7.3.2. Negative</a></li>
 </ul>
 </li>
-<li><a href="#_rationale">C.3.7.4. Rationale</a></li>
-</ul>
-</li>
-<li><a href="#_adr_007_privileged_container_mode_removal">C.3.8. ADR-007: Privileged Container Mode Removal</a>
-<ul class="sectlevel4">
-<li><a href="#_context_8">C.3.8.1. Context</a></li>
-<li><a href="#_decision_8">C.3.8.2. Decision</a></li>
-<li><a href="#_consequences_8">C.3.8.3. Consequences</a>
-<ul class="sectlevel5">
-<li><a href="#_positive_6">C.3.8.3.1. Positive</a></li>
-<li><a href="#_negative_5">C.3.8.3.2. Negative</a></li>
-</ul>
-</li>
-<li><a href="#_host_configuration_required">C.3.8.4. Host Configuration Required</a></li>
-<li><a href="#_capabilities_considered">C.3.8.5. Capabilities Considered</a></li>
-<li><a href="#_shutdown_capability">C.3.8.6. Shutdown Capability</a></li>
-<li><a href="#_testing_results">C.3.8.7. Testing Results</a></li>
+<li><a href="#_host_configuration_required">C.3.7.4. Host Configuration Required</a></li>
+<li><a href="#_capabilities_considered">C.3.7.5. Capabilities Considered</a></li>
+<li><a href="#_shutdown_capability">C.3.7.6. Shutdown Capability</a></li>
+<li><a href="#_testing_results">C.3.7.7. Testing Results</a></li>
 </ul>
 </li>
 </ul>
@@ -879,6 +850,9 @@ pre.rouge .gs {
 <div class="sectionbody">
 <div class="paragraph">
 <p>Docker container setup for streaming USB microscope camera via web interface on Raspberry Pi Zero.</p>
+</div>
+<div class="paragraph">
+<p>Right now a lot to read. And like the telephone book of old, you really just read the parts you need. So jump to what you need from the table of contents or search it. The stuff was writen more for me anyway.</p>
 </div>
 <div class="ulist">
 <div class="title">Why?</div>
@@ -927,6 +901,7 @@ pre.rouge .gs {
 - Prompt for your Pi hostname/IP
 - Set up SSH access (generate keys and copy if needed)
 - Copy required files to Pi
+- Check whether SPI and I2C are enabled on the Pi, offer to enable them and reboot when necessary; the script will wait for the Pi to come back online and resume automatically
 - Run comprehensive testing and container build</p>
 </div>
 <div class="paragraph">
@@ -1869,7 +1844,14 @@ BATTERY_CRITICAL_THRESHOLD=10</code></pre>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="bash"><span class="nb">cd </span>docker
-docker-compose up <span class="nt">-d</span></code></pre>
+<span class="c"># If your host has the hardware interfaces enabled (I2C/SPI/GPIO), use the hardware override</span>
+<span class="c"># to map device nodes into the container. This prevents failures on hosts that lack those devices.</span>
+<span class="c">#</span>
+<span class="c"># For full hardware access (Raspberry Pi):</span>
+<span class="c"># docker-compose -f docker-compose.yml -f docker-compose.hardware.yml up -d</span>
+<span class="c">#</span>
+<span class="c"># For a host without hardware devices or for testing, use the base compose file:</span>
+<span class="c"># docker-compose up -d</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -3809,442 +3791,13 @@ Environment variables configured in compose.</p>
 <div class="paragraph">
 <p>Waiting for LED event queue implementation.</p>
 </div>
-</div>
-</div>
-<div class="sect3">
-<h4 id="_adr_005_multi_camera_source_management">C.3.6. ADR-005: Multi-Camera Source Management</h4>
 <div class="paragraph">
-<p><strong>Status:</strong> Proposed</p>
-</div>
-<div class="paragraph">
-<p><strong>Date:</strong> 2025-12-15</p>
-</div>
-<div class="sect4">
-<h5 id="_context_6">C.3.6.1. Context</h5>
-<div class="ulist">
-<div class="title">System designed for three (or more) camera sources:</div>
-<ul>
-<li>
-<p>HDMI capture via MacroSilicon USB adapter</p>
-<div class="ulist">
-<ul>
-<li>
-<p>For now&#8230;&#8203; next step is to use that for an additional camera</p>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p>Direct USB microscope camera</p>
-<div class="ulist">
-<ul>
-<li>
-<p>currently the usb capture device as no HUB used</p>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p>Raspberry Pi Camera Module (CSI) (with night vision)</p>
-</li>
-</ul>
-</div>
-<div class="ulist">
-<div class="title">Current</div>
-<ul>
-<li>
-<p>Current implementation supports single camera only.</p>
-</li>
-<li>
-<p>Camera device hardcoded in configuration.</p>
-</li>
-<li>
-<p>No source detection or switching.</p>
-</li>
-</ul>
-</div>
-<div class="ulist">
-<div class="title">Goal</div>
-<ul>
-<li>
-<p>Architecture documents stream deck interface.</p>
-</li>
-<li>
-<p>User can switch between sources.</p>
-</li>
-<li>
-<p>Each source requires different configuration.</p>
-</li>
-</ul>
-</div>
-<div class="ulist">
-<div class="title">Potentail further cameras:</div>
-<ul>
-<li>
-<p>Additional USB microscopes via powered hub</p>
-<div class="ulist">
-<ul>
-<li>
-<p>eg thermal camera</p>
-</li>
-</ul>
-</div>
-</li>
-</ul>
-</div>
-</div>
-<div class="sect4">
-<h5 id="_decision_6">C.3.6.2. Decision</h5>
-<div class="paragraph">
-<p>Defer multi-camera until single camera stable.</p>
-</div>
-<div class="ulist">
-<div class="title">When implemented:</div>
-<ul>
-<li>
-<p>Auto-detect available cameras on startup</p>
-<div class="ulist">
-<ul>
-<li>
-<p>should do now even for single camera</p>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p>Maintain separate camera service per source</p>
-</li>
-<li>
-<p>Switch active stream via API endpoint</p>
-</li>
-<li>
-<p>Show source thumbnails in UI</p>
-</li>
-</ul>
-</div>
-<div class="sect5">
-<h6 id="_detection_strategy">C.3.6.2.1. Detection Strategy</h6>
-<div class="ulist">
-<div class="title">Scan video devices on startup:</div>
-<ul>
-<li>
-<p><code>/dev/video0</code> through <code>/dev/video4</code></p>
-</li>
-<li>
-<p>Query capabilities with v4l2</p>
-</li>
-<li>
-<p>Identify device by USB ID or driver</p>
-</li>
-<li>
-<p>Store available sources</p>
-</li>
-</ul>
-</div>
-</div>
-<div class="sect5">
-<h6 id="_switching_approaches">C.3.6.2.2. Switching Approaches</h6>
-<div class="ulist">
-<div class="title">Option 1: V4L2 switching (simpler)</div>
-<ul>
-<li>
-<p>Single Flask stream endpoint</p>
-</li>
-<li>
-<p>Switch camera service backend</p>
-</li>
-<li>
-<p>One stream at a time</p>
-</li>
-<li>
-<p>Lower bandwidth</p>
-</li>
-</ul>
-</div>
-<div class="ulist">
-<div class="title">Option 2: Multiple streams (complex)</div>
-<ul>
-<li>
-<p>Separate endpoint per camera</p>
-</li>
-<li>
-<p>Client-side switching</p>
-</li>
-<li>
-<p>Simultaneous preview possible</p>
-</li>
-<li>
-<p>Higher bandwidth</p>
-</li>
-</ul>
-</div>
-<div class="ulist">
-<div class="title">Decision:</div>
-<ul>
-<li>
-<p>Start with Option 1.</p>
-</li>
-<li>
-<p>Upgrade to Option 2 if preview needed.</p>
-</li>
-</ul>
-</div>
-</div>
-</div>
-<div class="sect4">
-<h5 id="_consequences_6">C.3.6.3. Consequences</h5>
-<div class="sect5">
-<h6 id="_positive_deferred">C.3.6.3.1. Positive - Deferred</h6>
-<div class="ulist">
-<ul>
-<li>
-<p>Simpler current implementation</p>
-</li>
-<li>
-<p>Single camera well-tested</p>
-</li>
-<li>
-<p>Easier deployment</p>
-</li>
-<li>
-<p>Lower resource usage</p>
-</li>
-</ul>
-</div>
-</div>
-<div class="sect5">
-<h6 id="_negative_deferred">C.3.6.3.2. Negative - Deferred</h6>
-<div class="ulist">
-<ul>
-<li>
-<p>Cannot use multiple microscopes</p>
-</li>
-<li>
-<p>Manual config to switch sources</p>
-</li>
-<li>
-<p>No camera comparison</p>
-</li>
-<li>
-<p>Limited use cases</p>
-</li>
-</ul>
-</div>
-</div>
-<div class="sect5">
-<h6 id="_positive_when_implemented">C.3.6.3.3. Positive - When Implemented</h6>
-<div class="ulist">
-<ul>
-<li>
-<p>Flexible microscope setup</p>
-</li>
-<li>
-<p>Easy source comparison</p>
-</li>
-<li>
-<p>Support different microscopes</p>
-</li>
-<li>
-<p>Stream deck interface</p>
-</li>
-</ul>
-</div>
-</div>
-<div class="sect5">
-<h6 id="_negative_when_implemented">C.3.6.3.4. Negative - When Implemented</h6>
-<div class="ulist">
-<ul>
-<li>
-<p>More complex device management</p>
-</li>
-<li>
-<p>Camera initialization overhead</p>
-</li>
-<li>
-<p>Source switching latency</p>
-</li>
-<li>
-<p>Higher resource usage</p>
-<div class="ulist">
-<ul>
-<li>
-<p>Could well be beyond pi zero</p>
-</li>
-</ul>
-</div>
-</li>
-</ul>
-</div>
-</div>
-</div>
-<div class="sect4">
-<h5 id="_implementation_plan_2">C.3.6.4. Implementation Plan</h5>
-<div class="ulist">
-<div class="title">Phase 1 (current):</div>
-<ul>
-<li>
-<p>Single camera via VIDEO_DEVICE env var</p>
-</li>
-<li>
-<p>Manual configuration</p>
-</li>
-<li>
-<p>Restart to switch</p>
-</li>
-</ul>
-</div>
-<div class="ulist">
-<div class="title">Phase 2 (detection):</div>
-<ul>
-<li>
-<p>Scan available cameras</p>
-</li>
-<li>
-<p>Report in /status endpoint</p>
-</li>
-<li>
-<p>UI shows available sources</p>
-</li>
-</ul>
-</div>
-<div class="ulist">
-<div class="title">Phase 3 (switching):</div>
-<ul>
-<li>
-<p><code>/switch/&lt;source&gt;</code> endpoint</p>
-</li>
-<li>
-<p>Stop current camera</p>
-</li>
-<li>
-<p>Start new camera</p>
-</li>
-<li>
-<p>Update LED streaming indicator</p>
-</li>
-</ul>
-</div>
-<div class="ulist">
-<div class="title">Phase 4 (stream deck):</div>
-<ul>
-<li>
-<p>Thumbnail previews</p>
-</li>
-<li>
-<p>Click to switch</p>
-</li>
-<li>
-<p>Source status indicators</p>
-</li>
-</ul>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<div class="title">Note</div>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>slowly slowly catchy monkey.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-</div>
-<div class="sect4">
-<h5 id="_stream_deck_interface">C.3.6.5. Stream Deck Interface</h5>
-<div class="sect5">
-<h6 id="_features">C.3.6.5.1. Features</h6>
-<div class="ulist">
-<ul>
-<li>
-<p>Preview tiles for each source (thumbnail grid)</p>
-</li>
-<li>
-<p>Click to switch active source</p>
-</li>
-<li>
-<p>Capture from any source</p>
-</li>
-<li>
-<p>Download captured images</p>
-</li>
-<li>
-<p>Source status indicators</p>
-</li>
-</ul>
-</div>
-</div>
-<div class="sect5">
-<h6 id="_ui_layout">C.3.6.5.2. UI Layout</h6>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code>┌─────────────────────────────────────┐
-│ VSaGCR - Microscopy Interface        │
-├─────────────────────────────────────┤
-│ ┌──────┐ ┌──────┐ ┌──────┐         │
-│ │HDMI  │ │ USB  │ │ Pi   │ Sources │
-│ │ ▶    │ │      │ │Cam   │         │
-│ └──────┘ └──────┘ └──────┘         │
-├─────────────────────────────────────┤
-│ [Main Preview - Active Source]      │
-│                                     │
-├─────────────────────────────────────┤
-│ [Capture] [Record] [Switch]         │
-│ Battery: ████████ 85%               │
-└─────────────────────────────────────┘</code></pre>
-</div>
-</div>
-</div>
-</div>
-<div class="sect4">
-<h5 id="_configuration_2">C.3.6.6. Configuration</h5>
-<div class="paragraph">
-<p>Environment variables per source:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="yaml"><span class="s">VIDEO_DEVICE_HDMI=/dev/video0</span>
-<span class="s">VIDEO_DEVICE_USB=/dev/video1</span>
-<span class="s">VIDEO_DEVICE_CSI=/dev/video2</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Auto-detection overrides if devices found.
-Maybe even just forgo config entirely if dynamic is good enough.</p>
-</div>
-</div>
-<div class="sect4">
-<h5 id="_led_integration">C.3.6.7. LED Integration</h5>
-<div class="paragraph">
-<p>Row 1 streaming indicator shows active source:
-* Left side: HDMI
-* Center: USB
-* Right: CSI</p>
-</div>
-<div class="paragraph">
-<p>Animations on source switch.</p>
-</div>
-</div>
-<div class="sect4">
-<h5 id="_current_status_2">C.3.6.8. Current Status</h5>
-<div class="paragraph">
-<p>Single camera only.
-Configured via VIDEO_DEVICE.
-Multi-camera documented in architecture.</p>
-</div>
-<div class="paragraph">
-<p>Waiting for:
-* Production deployment experience
-* User feedback on single camera (me)
-* LED event queue implementation</p>
+<p>Unresolved directive in adr/README.adoc - include::adr-005-multi-camera-management.adoc[leveloffset=+2]</p>
 </div>
 </div>
 </div>
 <div class="sect3">
-<h4 id="_adr_006_directory_structure">C.3.7. ADR-006: Directory Structure</h4>
+<h4 id="_adr_006_directory_structure">C.3.6. ADR-006: Directory Structure</h4>
 <div class="paragraph">
 <p><strong>Status:</strong> Accepted</p>
 </div>
@@ -4252,7 +3805,7 @@ Multi-camera documented in architecture.</p>
 <p><strong>Date:</strong> 2025-12-15</p>
 </div>
 <div class="sect4">
-<h5 id="_context_7">C.3.7.1. Context</h5>
+<h5 id="_context_6">C.3.6.1. Context</h5>
 <div class="ulist">
 <ul>
 <li>
@@ -4268,7 +3821,7 @@ Multi-camera documented in architecture.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_decision_7">C.3.7.2. Decision</h5>
+<h5 id="_decision_6">C.3.6.2. Decision</h5>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code>/docker/
@@ -4288,9 +3841,9 @@ Root level files:
 </div>
 </div>
 <div class="sect4">
-<h5 id="_consequences_7">C.3.7.3. Consequences</h5>
+<h5 id="_consequences_6">C.3.6.3. Consequences</h5>
 <div class="sect5">
-<h6 id="_positive_5">C.3.7.3.1. Positive</h6>
+<h6 id="_positive_5">C.3.6.3.1. Positive</h6>
 <div class="ulist">
 <ul>
 <li>
@@ -4310,7 +3863,7 @@ Root level files:
 </div>
 </div>
 <div class="sect4">
-<h5 id="_rationale">C.3.7.4. Rationale</h5>
+<h5 id="_rationale">C.3.6.4. Rationale</h5>
 <div class="paragraph">
 <p><code>/docker</code> groups all container-related files.
 Sub-directory per container project.
@@ -4331,7 +3884,7 @@ Multiple containers possible in future.</p>
 </div>
 </div>
 <div class="sect3">
-<h4 id="_adr_007_privileged_container_mode_removal">C.3.8. ADR-007: Privileged Container Mode Removal</h4>
+<h4 id="_adr_007_privileged_container_mode_removal">C.3.7. ADR-007: Privileged Container Mode Removal</h4>
 <div class="paragraph">
 <p><strong>Status:</strong> Accepted</p>
 </div>
@@ -4339,7 +3892,7 @@ Multiple containers possible in future.</p>
 <p><strong>Date:</strong> 2025-12-15</p>
 </div>
 <div class="sect4">
-<h5 id="_context_8">C.3.8.1. Context</h5>
+<h5 id="_context_7">C.3.7.1. Context</h5>
 <div class="paragraph">
 <p>Initial container configuration used <code>privileged: true</code>.</p>
 </div>
@@ -4397,7 +3950,7 @@ Multiple containers possible in future.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_decision_8">C.3.8.2. Decision</h5>
+<h5 id="_decision_7">C.3.7.2. Decision</h5>
 <div class="paragraph">
 <p>Remove privileged mode completely.
 Use specific device mappings only.</p>
@@ -4438,9 +3991,9 @@ Use specific device mappings only.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_consequences_8">C.3.8.3. Consequences</h5>
+<h5 id="_consequences_7">C.3.7.3. Consequences</h5>
 <div class="sect5">
-<h6 id="_positive_6">C.3.8.3.1. Positive</h6>
+<h6 id="_positive_6">C.3.7.3.1. Positive</h6>
 <div class="ulist">
 <ul>
 <li>
@@ -4469,7 +4022,7 @@ Use specific device mappings only.</p>
 </div>
 </div>
 <div class="sect5">
-<h6 id="_negative_5">C.3.8.3.2. Negative</h6>
+<h6 id="_negative_5">C.3.7.3.2. Negative</h6>
 <div class="ulist">
 <ul>
 <li>
@@ -4489,7 +4042,7 @@ Use specific device mappings only.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_host_configuration_required">C.3.8.4. Host Configuration Required</h5>
+<h5 id="_host_configuration_required">C.3.7.4. Host Configuration Required</h5>
 <div class="paragraph">
 <p>Devices must exist with proper permissions:</p>
 </div>
@@ -4510,7 +4063,7 @@ Container should fail fast if devices inaccessible.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_capabilities_considered">C.3.8.5. Capabilities Considered</h5>
+<h5 id="_capabilities_considered">C.3.7.5. Capabilities Considered</h5>
 <div class="paragraph">
 <p>Alternative to privileged mode: Linux capabilities.</p>
 </div>
@@ -4545,7 +4098,7 @@ Container should fail fast if devices inaccessible.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_shutdown_capability">C.3.8.6. Shutdown Capability</h5>
+<h5 id="_shutdown_capability">C.3.7.6. Shutdown Capability</h5>
 <div class="paragraph">
 <p>Battery monitoring may need system shutdown.
 Options:</p>
@@ -4591,7 +4144,7 @@ Options:</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_testing_results">C.3.8.7. Testing Results</h5>
+<h5 id="_testing_results">C.3.7.7. Testing Results</h5>
 <div class="paragraph">
 <p>Container tested without privileged mode:
 * Camera access: Works
@@ -4612,7 +4165,7 @@ No privileged mode required.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2025-12-15 22:20:40 UTC
+Last updated 2025-12-16 19:07:23 UTC
 </div>
 </div>
 </body>
