@@ -1,0 +1,15 @@
+# Override file to add hardware device mappings when running on a host
+# with SPI/I2C/GPIO (e.g., Raspberry Pi). Use together with the base
+# docker-compose.yml:
+#
+# docker-compose -f docker-compose.yml -f docker-compose.hardware.yml up -d
+#
+services:
+  microscope:
+    devices:
+      - /dev/video1:/dev/video1
+      - /dev/vchiq:/dev/vchiq
+      - /dev/vcsm-cma:/dev/vcsm-cma
+      - /dev/gpiomem:/dev/gpiomem
+      - /dev/spidev0.0:/dev/spidev0.0
+      - /dev/i2c-1:/dev/i2c-1

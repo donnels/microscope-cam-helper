@@ -13,6 +13,10 @@ import sys
 import os
 import argparse
 
+# Suppress GStreamer warnings
+os.environ['OPENCV_VIDEOIO_PRIORITY_GSTREAMER'] = '0'
+os.environ['OPENCV_LOG_LEVEL'] = 'ERROR'
+
 def list_devices():
     """List available video devices"""
     print("Available video devices:")
@@ -45,38 +49,51 @@ def test_camera(device, output_file=None):
     print(f"Output file: {output_file}")
 
     try:
-        cap = cv2.VideoCapture(device)
-
-        # Try different formats for different camera types
+        # For CSI camera (/dev/video0), set format first using v4l2-ctl
         if 'video0' in device:
-            # CSI camera
-            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
-        else:
-            # USB cameras
-            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('Y', 'U', 'Y', 'V'))
+            import subprocess
+            print("Configuring CSI camera format...")
+            subprocess.run(['v4l2-ctl', '--device=' + device, '--set-fmt-video=width=640,height=480,pixelformat=BGR3'], 
+                          capture_output=True, check=False)
+        
+        cap = cv2.VideoCapture(device, cv2.CAP_V4L2)
 
         if not cap.isOpened():
             print(f"ERROR: Cannot open {device}")
             return False
 
-        # Get camera properties
+        # Set desired format and resolution
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        
+        # For CSI camera, use BGR3 format
+        if 'video0' in device:
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('B', 'G', 'R', '3'))
+        else:
+            # For USB cameras, try MJPG first
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
+
+        # Get actual camera properties after setting
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = cap.get(cv2.CAP_PROP_FPS)
 
         print(f"Resolution: {width}x{height}")
-        print(".1f")
+        if fps > 0:
+            print(f"FPS: {fps:.1f}")
 
         # Warmup - let camera stabilize
         print("Warming up camera...")
-        for i in range(5):
-            cap.read()
+        for i in range(10):
+            ret, _ = cap.read()
+            if not ret:
+                print(f"Warning: Failed to read frame during warmup (attempt {i+1}/10)")
 
         # Capture frame
         print("Capturing frame...")
         ret, frame = cap.read()
 
-        if ret:
+        if ret and frame is not None:
             cv2.imwrite(output_file, frame)
             print(f"SUCCESS: Captured {output_file}")
             print(f"Frame size: {frame.shape}")

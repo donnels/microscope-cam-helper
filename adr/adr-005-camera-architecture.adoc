@@ -1,0 +1,71 @@
+= ADR-005: Camera Architecture
+
+*Status:* Active
+
+*Date:* 2025-12-16
+
+== Context
+
+Three camera types. Different drivers. Different APIs.
+
+USB HDMI (MacroSilicon 534d:2109): uvcvideo, /dev/video1, MJPEG 1920x1080@60fps, V4L2.
+Direct USB: uvcvideo, /dev/video2, varies, V4L2.
+RPi CSI (OV5647): unicam, /dev/video0, libcamera only.
+
+== Decision
+
+One service per camera type. Different ports. No routing.
+
+USB service: 8080/8443, OpenCV+V4L2, /dev/video1 and /dev/video2.
+CSI service: 8081/8444, rpicam-vid subprocess, /dev/video0 and /dev/media2.
+
+OpenCV for USB: Works with all V4L2 devices. Handles MJPEG and raw. Reusability wins.
+rpicam-vid for CSI: CSI requires libcamera. V4L2 deprecated. Outputs MJPEG to stdout.
+
+== Implementation
+
+USB service (current working code):
+[source,python]
+----
+cap = cv2.VideoCapture(device)
+ret, frame = cap.read()
+jpg = cv2.imencode('.jpg', frame)[1]
+yield jpg.tobytes()
+----
+
+CSI service (new):
+[source,python]
+----
+process = subprocess.Popen([
+    'rpicam-vid', '--timeout', '0',
+    '--codec', 'mjpeg', '--output', '-'
+], stdout=subprocess.PIPE)
+while True:
+    yield process.stdout.read(4096)
+----
+
+Docker compose: Base has no devices. Hardware override adds devices.
+
+Access: Direct URLs. http://pi.local:8080/stream (USB), http://pi.local:8081/stream (CSI).
+
+== Phases
+
+Phase 1 (done): Single USB camera.
+Phase 2 (next): Add CSI service.
+Phase 3: Auto-detect cameras.
+Phase 4: API to switch active camera.
+Phase 5: Landing page with thumbnails.
+
+== Consequences
+
+Wins: Simple. No routing. Easy debug. Independent services.
+Costs: Multiple containers. Multiple ports. More resources.
+Risks: Pi Zero may struggle. HTTPS overhead. RAM limits.
+
+Mitigate: Test on hardware. Disable HTTPS if needed. One stream at a time.
+
+== Notes
+
+HTTPS optional. Home network only.
+No reverse proxy. KISS principle.
+

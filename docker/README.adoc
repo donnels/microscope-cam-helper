@@ -172,7 +172,14 @@ Start service:
 [source,bash]
 ----
 cd docker
-docker-compose up -d
+# If your host has the hardware interfaces enabled (I2C/SPI/GPIO), use the hardware override
+# to map device nodes into the container. This prevents failures on hosts that lack those devices.
+#
+# For full hardware access (Raspberry Pi):
+# docker-compose -f docker-compose.yml -f docker-compose.hardware.yml up -d
+#
+# For a host without hardware devices or for testing, use the base compose file:
+# docker-compose up -d
 ----
 
 Variables passed to container.

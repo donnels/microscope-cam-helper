@@ -10,7 +10,14 @@ TESTS_DIR="prep-scripts"
 TESTS_ENV="$HOME/test-env"
 
 echo "=== Comprehensive Microscope Camera System Test ==="
+
 echo
+# If a previous run requested a reboot, detect the sentinel and resume gracefully
+if [ -f "$HOME/.microscope_reboot_requested" ]; then
+    echo "✓ Detected reboot sentinel from previous run. Resuming after reboot."
+    rm -f "$HOME/.microscope_reboot_requested" || true
+fi
+
 
 # Function to check if command exists
 command_exists() {
@@ -31,6 +38,11 @@ install_if_missing() {
 }
 
 echo "1. Installing required system packages..."
+# Update package lists and upgrade existing packages first (may take a while)
+echo "Updating package lists and upgrading installed packages..."
+sudo apt-get update
+sudo apt-get upgrade -y
+
 install_if_missing "v4l-utils"
 install_if_missing "docker.io"
 install_if_missing "docker-compose"
@@ -38,22 +50,50 @@ install_if_missing "python3-venv"
 install_if_missing "python3-pip"
 install_if_missing "i2c-tools"
 install_if_missing "usbutils"
+install_if_missing "python3-opencv"
 echo
 
 echo "2. Checking hardware configuration..."
-echo "Checking I2C..."
-if grep -q "dtparam=i2c_arm" /boot/config.txt /boot/firmware/config.txt /boot/firmware/usercfg.txt 2>/dev/null || [ -e /dev/i2c-1 ]; then
-    echo "✓ I2C enabled"
+
+# Consolidated check for I2C and SPI; prompt once to enable missing interfaces and reboot
+I2C_OK=false
+SPI_OK=false
+if grep -q "dtparam=i2c_arm" /boot/config.txt /boot/firmware/config.txt /boot/firmware/usercfg.txt 2>/dev/null || [ -e "/dev/i2c-1" ]; then
+  I2C_OK=true
+  echo "✓ I2C enabled"
 else
-    echo "⚠ I2C not enabled. Run 'sudo raspi-config' → Interfacing Options → I2C → Enable"
+  echo "⚠ I2C not enabled"
 fi
 
-echo "Checking SPI..."
-if grep -q "dtparam=spi" /boot/config.txt /boot/firmware/config.txt /boot/firmware/usercfg.txt 2>/dev/null || [ -e /dev/spidev0.0 ]; then
-    echo "✓ SPI enabled"
+if grep -q "dtparam=spi" /boot/config.txt /boot/firmware/config.txt /boot/firmware/usercfg.txt 2>/dev/null || [ -e "/dev/spidev0.0" ]; then
+  SPI_OK=true
+  echo "✓ SPI enabled"
 else
-    echo "⚠ SPI not enabled. Run 'sudo raspi-config' → Interfacing Options → SPI → Enable"
+  echo "⚠ SPI not enabled"
 fi
+
+if [ "$I2C_OK" = true ] && [ "$SPI_OK" = true ]; then
+  echo "Both I2C and SPI are enabled."
+else
+  read -p "Enable missing interfaces (I2C/SPI) and reboot now? [y/N] " REPLY
+  if [[ "$REPLY" =~ ^[Yy]$ ]]; then
+    echo "Enabling missing interfaces..."
+    if command -v raspi-config >/dev/null 2>&1; then
+      if [ "$I2C_OK" != true ]; then sudo raspi-config nonint do_i2c 0 || true; fi
+      if [ "$SPI_OK" != true ]; then sudo raspi-config nonint do_spi 0 || true; fi
+    else
+      if [ "$I2C_OK" != true ]; then sudo sed -i "/^dtparam=i2c_arm/d" /boot/config.txt || true; echo 'dtparam=i2c_arm=on' | sudo tee -a /boot/config.txt >/dev/null; fi
+      if [ "$SPI_OK" != true ]; then sudo sed -i "/^dtparam=spi/d" /boot/config.txt || true; echo 'dtparam=spi=on' | sudo tee -a /boot/config.txt >/dev/null; fi
+    fi
+    echo "Marked interfaces for activation. Creating reboot sentinel and rebooting now..."
+    touch ~/.microscope_reboot_requested
+    sudo reboot
+    exit 2
+  else
+    echo "Proceeding without enabling missing interfaces. You can enable them later and re-run the test."
+  fi
+fi
+
 echo
 
 echo "3. Checking USB video device..."
@@ -137,8 +177,33 @@ echo "✓ LED test completed (check if LEDs lit)"
 echo
 
 echo "9b. Testing Battery Monitor..."
-echo "Command: sudo -E $TESTS_ENV/bin/python3 function-test-battery.py"
-timeout 10 sudo -E "$TESTS_ENV/bin/python3" function-test-battery.py || echo "✓ Battery test completed (timed out after 10s)"
+
+echo "Ensuring I2C is available (/dev/i2c-1)"
+if [ ! -e "/dev/i2c-1" ]; then
+  echo "Loading i2c-dev kernel module..."
+  sudo modprobe i2c-dev || true
+  sleep 2
+  
+  if [ -e "/dev/i2c-1" ]; then
+    echo "✓ /dev/i2c-1 appeared after modprobe"
+    # Make i2c-dev load at boot
+    if ! grep -q "^i2c-dev" /etc/modules; then
+      echo "Adding i2c-dev to /etc/modules for auto-load at boot"
+      echo "i2c-dev" | sudo tee -a /etc/modules >/dev/null
+    fi
+  else
+    echo "✗ /dev/i2c-1 not found. Try enabling I2C via 'sudo raspi-config' → Interfacing Options → I2C, then reboot."
+    echo "✗ Skipping battery test"
+  fi
+else
+  echo "✓ /dev/i2c-1 present"
+fi
+
+if [ -e "/dev/i2c-1" ]; then
+  echo "Command: sudo -E $TESTS_ENV/bin/python3 function-test-battery.py"
+  timeout 10 sudo -E "$TESTS_ENV/bin/python3" function-test-battery.py || echo "✓ Battery test completed (timed out after 10s)"
+fi
+
 echo
 
 echo "9c. Testing Camera (if opencv available)..."

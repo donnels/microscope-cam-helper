@@ -17,6 +17,8 @@ endif::[]
 == Description
 Docker container setup for streaming USB microscope camera via web interface on Raspberry Pi Zero.
 
+Right now a lot to read. And like the telephone book of old, you really just read the parts you need. So jump to what you need from the table of contents or search it. The stuff was writen more for me anyway.
+
 .Why?
 * Had a few zeros hanging around (one used here for now)
 * had a camera on a microscope (USB and HDMI)
@@ -41,6 +43,7 @@ It will:
 - Prompt for your Pi hostname/IP
 - Set up SSH access (generate keys and copy if needed)
 - Copy required files to Pi
+- Check whether SPI and I2C are enabled on the Pi, offer to enable them and reboot when necessary; the script will wait for the Pi to come back online and resume automatically
 - Run comprehensive testing and container build
 
 Manual steps if preferred:

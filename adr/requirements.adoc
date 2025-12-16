@@ -1,0 +1,62 @@
+= System Requirements
+
+Status: Active +
+Date: 2025-12-16
+
+== Vision
+
+* Stream microscope video over network.
+* Support multiple cameras.
+* Simple deployment.
+
+== Constraints
+
+* Raspberry Pi Zero (ARMv6). Limited CPU and RAM.
+* Home network only. Self-hosted.
+
+== Cameras
+
+* USB HDMI capture (MacroSilicon 534d:2109). Uses OpenCV + V4L2.
+* Direct USB camera. Uses OpenCV + V4L2.
+* RPi CSI camera (OV5647). Uses libcamera (rpicam-vid).
+
+* Each camera runs in separate container.
+* Each camera on different port.
+* No routing layer.
+
+== Features
+
+* MJPEG streaming. 640x480 to 1920x1080. 15-60fps.
+* Still image capture. Save to disk. Download via web.
+* Health endpoint. Battery monitor. LED status indicators.
+
+== Web Interface
+
+* Basic auth except /health.
+* Mobile-friendly.
+* HTTPS optional (Pi Zero performance).
+
+== Hardware
+
+* Unicorn HAT LEDs for status.
+* UPS battery via I2C.
+* I2C and SPI enabled.
+
+== Deployment
+
+* Docker Compose. Single command.
+* Hardware devices mapped explicitly.
+* Environment variable config.
+* No privileged mode (unless needed).
+
+== Principles
+
+* One service per camera type.
+* App code in containers.
+* Missing devices fail startup.
+* Environment variables only.
+
+== Out of Scope
+
+Cloud storage. User management. Video recording. Motion detection.
+Remote access outside LAN. WebRTC. Multi-user.

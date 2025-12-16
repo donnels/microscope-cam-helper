@@ -2,13 +2,13 @@ services:
   microscope:
     build: ./docker-microscope
     container_name: microscope-camera
-    devices:
-      - /dev/video1:/dev/video1
-      - /dev/vchiq:/dev/vchiq
-      - /dev/vcsm-cma:/dev/vcsm-cma
-      - /dev/gpiomem:/dev/gpiomem
-      - /dev/spidev0.0:/dev/spidev0.0
-      - /dev/i2c-1:/dev/i2c-1
+    # Hardware device mappings are optional and provided in the
+    # docker-compose.hardware.yml override file. Use the override when
+    # deploying on a host with the hardware (e.g., Raspberry Pi):
+    #
+    # docker-compose -f docker-compose.yml -f docker-compose.hardware.yml up -d
+    #
+    # This avoids startup failures on hosts without SPI/I2C devices.
     ports:
       - "8443:8443"
       - "8080:8080"

@@ -51,7 +51,64 @@ scp -r prep-scripts docker "$PI_HOST:~/"
 echo "✓ Directories copied"
 echo
 
-# Run comprehensive test
+# Check remote hardware enablement (I2C, SPI)
+check_remote_interfaces() {
+  ssh -o ConnectTimeout=5 "$PI_HOST" "bash -lc '
+    if grep -q "dtparam=i2c_arm" /boot/config.txt /boot/firmware/config.txt /boot/firmware/usercfg.txt 2>/dev/null || [ -e /dev/i2c-1 ]; then echo I2C_ENABLED; else echo I2C_DISABLED; fi
+    if grep -q "dtparam=spi" /boot/config.txt /boot/firmware/config.txt /boot/firmware/usercfg.txt 2>/dev/null || [ -e /dev/spidev0.0 ]; then echo SPI_ENABLED; else echo SPI_DISABLED; fi
+  '"
+}
+
+RESULTS=$(check_remote_interfaces) || RESULTS=""
+I2C_STATE=$(echo "$RESULTS" | grep I2C | tail -n1 | cut -d'_' -f2 || true)
+SPI_STATE=$(echo "$RESULTS" | grep SPI | tail -n1 | cut -d'_' -f2 || true)
+
+if [[ "$I2C_STATE" == "DISABLED" ]] || [[ "$SPI_STATE" == "DISABLED" ]]; then
+  echo "Remote hardware interfaces status:"
+  echo "  I2C: ${I2C_STATE:-UNKNOWN}"
+  echo "  SPI: ${SPI_STATE:-UNKNOWN}"
+  read -p "Enable missing interfaces (I2C/SPI) on remote and reboot now? [y/N] " ENABLE_HW
+  if [[ "$ENABLE_HW" =~ ^[Yy]$ ]]; then
+    echo "Enabling interfaces on remote host and rebooting..."
+    ssh "$PI_HOST" "bash -lc '
+      set -e
+      # prefer raspi-config if available
+      if command -v raspi-config >/dev/null 2>&1; then
+        if [ "$I2C_STATE" = "DISABLED" ]; then sudo raspi-config nonint do_i2c 0 || true; fi
+        if [ "$SPI_STATE" = "DISABLED" ]; then sudo raspi-config nonint do_spi 0 || true; fi
+      else
+        if [ "$I2C_STATE" = "DISABLED" ]; then sudo sed -n -e '1,200p' /boot/config.txt >/tmp/bk_config || true; sudo sed -i '/^dtparam=i2c_arm/d' /boot/config.txt || true; echo 'dtparam=i2c_arm=on' | sudo tee -a /boot/config.txt >/dev/null; fi
+        if [ "$SPI_STATE" = "DISABLED" ]; then sudo sed -n -e '1,200p' /boot/config.txt >/tmp/bk_config || true; sudo sed -i '/^dtparam=spi/d' /boot/config.txt || true; echo 'dtparam=spi=on' | sudo tee -a /boot/config.txt >/dev/null; fi
+      fi
+      # mark that we asked for reboot so the caller can detect
+      touch ~/.microscope_reboot_requested
+      sudo reboot
+    '" || true
+
+    echo "Waiting for remote host to go down for reboot..."
+    sleep 5
+
+    # Wait for host to become reachable again via SSH
+    echo "Waiting for remote host to become available (will wait up to 5 minutes)..."
+    MAX_WAIT=300
+    INTERVAL=5
+    ELAPSED=0
+    while ! ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o PasswordAuthentication=no "$PI_HOST" 'echo ok' >/dev/null 2>&1; do
+      sleep $INTERVAL
+      ELAPSED=$((ELAPSED + INTERVAL))
+      if [ "$ELAPSED" -ge "$MAX_WAIT" ]; then
+        echo "Timeout waiting for host to come back. Check the device and re-run the script later."
+        exit 1
+      fi
+    done
+
+    echo "Remote host is back online. Resuming setup..."
+  else
+    echo "Proceeding without enabling hardware. You can enable I2C/SPI later and re-run the script."
+  fi
+fi
+
+# Run comprehensive test (may be re-run after a reboot)
 echo "Running comprehensive setup and test on Pi..."
 ssh "$PI_HOST" "cd prep-scripts && ./comprehensive-test.sh"
 echo
