@@ -8,8 +8,13 @@ echo "=== Microscope Camera System Setup ==="
 echo
 
 # Get Pi connection details
-read -p "Enter Raspberry Pi username: " PI_USER
-read -p "Enter Raspberry Pi hostname or IP: " PI_HOST
+if [ -z "$PI_USER" ]; then
+    read -p "Enter Raspberry Pi username: " PI_USER
+fi
+if [ -z "$PI_HOST" ]; then
+    read -p "Enter Raspberry Pi hostname or IP: " PI_HOST
+fi
+PI_IP="$PI_HOST"
 PI_HOST="$PI_USER@$PI_HOST"
 echo
 
@@ -116,9 +121,9 @@ echo
 echo "=== Setup Complete ==="
 echo
 echo "To start the microscope service:"
-echo "  ssh $PI_HOST 'cd docker/docker-microscope && sudo docker-compose up -d'"
+echo "  ssh $PI_HOST 'cd docker && sudo docker-compose -f docker-compose.yml -f docker-compose.hardware.yml up -d'"
 echo
-echo "Access at: https://$PI_HOST:8443"
+echo "Access at: https://$PI_IP:8443"
 echo
 echo "To view logs:"
-echo "  ssh $PI_HOST 'cd docker/docker-microscope && sudo docker-compose logs -f'"
+echo "  ssh $PI_HOST 'cd docker && sudo docker-compose -f docker-compose.yml -f docker-compose.hardware.yml logs -f'"

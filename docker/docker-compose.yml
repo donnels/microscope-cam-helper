@@ -2,6 +2,8 @@ services:
   microscope:
     build: ./docker-microscope
     container_name: microscope-camera
+    privileged: true  # !!!required
+
     # Hardware device mappings are optional and provided in the
     # docker-compose.hardware.yml override file. Use the override when
     # deploying on a host with the hardware (e.g., Raspberry Pi):
@@ -44,6 +46,37 @@ services:
       retries: 3
       start_period: 40s
 
+  csi-camera:
+    build: ./csi-camera
+    container_name: csi-camera
+    privileged: true  # !!!required
+    ports:
+      - "8444:8444"
+      - "8081:8081"
+    volumes:
+      - csi-captures:/app/captures
+      - /run/udev:/run/udev:ro
+      - /sys:/sys:ro
+    environment:
+      # CSI camera configuration
+      - CSI_VIDEO_WIDTH=${CSI_VIDEO_WIDTH:-640}
+      - CSI_VIDEO_HEIGHT=${CSI_VIDEO_HEIGHT:-480}
+      - CSI_VIDEO_FPS=${CSI_VIDEO_FPS:-30}
+      
+      # Web server configuration
+      - ENABLE_HTTPS=${ENABLE_HTTPS:-true}
+      - WEB_USERNAME=${WEB_USERNAME:-admin}
+      - WEB_PASSWORD=${WEB_PASSWORD:-changeme_generate_secure_password}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import requests; requests.get('http://localhost:8081/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
 volumes:
   microscope-captures:
     name: microscope-captures
+  csi-captures:
+    name: csi-captures

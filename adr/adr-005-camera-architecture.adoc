@@ -33,7 +33,7 @@ jpg = cv2.imencode('.jpg', frame)[1]
 yield jpg.tobytes()
 ----
 
-CSI service (new):
+CSI service (implemented and testing):
 [source,python]
 ----
 process = subprocess.Popen([
@@ -51,7 +51,7 @@ Access: Direct URLs. http://pi.local:8080/stream (USB), http://pi.local:8081/str
 == Phases
 
 Phase 1 (done): Single USB camera.
-Phase 2 (next): Add CSI service.
+Phase 2 (done): Add CSI service.
 Phase 3: Auto-detect cameras.
 Phase 4: API to switch active camera.
 Phase 5: Landing page with thumbnails.

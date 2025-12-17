@@ -167,6 +167,22 @@ pip install -r requirements.txt
 echo "✓ Python dependencies installed"
 echo
 
+echo "8.5. Checking for running Docker containers..."
+if sudo systemctl is-active --quiet docker && sudo docker ps -q | grep -q .; then
+    echo "⚠ Running containers detected. Shutting them down..."
+    if [ -d "../docker/docker-microscope" ]; then
+        cd ../docker/docker-microscope
+        sudo docker-compose down
+        cd - >/dev/null
+        echo "✓ Containers shut down"
+    else
+        echo "⚠ Docker directory not found, cannot shut down containers"
+    fi
+else
+    echo "✓ No running containers"
+fi
+echo
+
 echo "9. Running hardware tests..."
 echo
 
@@ -219,21 +235,21 @@ fi
 echo
 
 echo "10. Build Docker Container..."
-if [ -d "../docker/docker-microscope" ]; then
+if [ -d "../docker" ]; then
     echo "Docker directory found, building container..."
-    cd ../docker/docker-microscope
+    cd ../docker
     sudo docker-compose build
     echo "✓ Docker container built"
 else
     echo "⚠ Docker directory not found. Copy docker/ directory to Pi and run:"
-    echo "  cd docker/docker-microscope && sudo docker-compose build"
+    echo "  cd docker && sudo docker-compose build"
 fi
 echo
 
 echo "=== All Setup and Tests Complete ==="
 echo
 echo "To start the service:"
-echo "  cd docker/docker-microscope && sudo docker-compose up -d"
+echo "  cd docker && sudo docker-compose -f docker-compose.yml -f docker-compose.hardware.yml up -d"
 echo
 echo "Access at: https://<pi-ip>:8443"
 echo

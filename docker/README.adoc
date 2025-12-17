@@ -185,6 +185,16 @@ cd docker
 Variables passed to container.
 Defaults used if not set.
 
+== Services
+
+Two camera services run in parallel.
+
+*USB Camera Service* (microscope): Ports 8080/8443. OpenCV + V4L2. /dev/video1.
+
+*CSI Camera Service* (csi-camera): Ports 8081/8444. rpicam-vid subprocess. /dev/video0.
+
+Access directly: http://pi.local:8080/stream (USB), http://pi.local:8081/stream (CSI).
+
 === Security
 
 `.env` file contains credentials.
