@@ -43,5 +43,21 @@ applyTo: '**'
 - ADRs in /adr
 - /docs directory reserved for GitHub Pages deployment ONLY
 
-## running commands that are not on the system (we're testing from a steamdeck in desktop mode from in a flatpack)
-- we have podman use it 
+## Running Commands
+- System runs on Steam Deck in desktop mode
+- VSCode runs as flatpak
+- Use podman for containers
+
+## VSCode Terminal Limits
+- Copilot agent has 5-second timeout on terminal output
+- Commands under 5 seconds return output
+- Commands over 5 seconds do not return output
+- Commands still execute but output is lost
+- Background processes work without limit
+- Use `command &` for long operations
+- Chain with checks: `long-cmd > /tmp/out.txt & sleep 2 && cat /tmp/out.txt`
+- Break operations into steps under 5 seconds each
+- Use tmux or screen on remote hosts for long tasks
+- The timeout is in agent tool layer not VSCode
+- The timeout is in agent tool layer not flatpak-spawn
+- Terminal itself works correctly 
